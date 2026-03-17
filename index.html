@@ -1,0 +1,247 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>NexusDB Tracker</title>
+    <link
+      href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css"
+      rel="stylesheet"
+    />
+    <style>
+      body {
+        background-color: #121212;
+        color: #e0e0e0;
+        font-family: "Segoe UI", Tahoma, Geneva, Verdana, sans-serif;
+      }
+      .container {
+        max-width: 800px;
+        margin-top: 50px;
+      }
+      .card {
+        background-color: #1e1e1e;
+        border: 1px solid #333;
+        color: white;
+        border-radius: 12px;
+      }
+      .btn-nexus {
+        background-color: #da8e35;
+        color: white;
+        font-weight: bold;
+        transition: 0.3s;
+      }
+      .btn-nexus:hover {
+        background-color: #f0a040;
+        transform: translateY(-2px);
+      }
+      .form-control {
+        background-color: #2a2a2a;
+        border: 1px solid #444;
+        color: white;
+      }
+      .form-control:focus {
+        background-color: #333;
+        color: white;
+        border-color: #da8e35;
+        box-shadow: none;
+      }
+      .mod-image {
+        width: 100%;
+        border-radius: 8px;
+        margin-bottom: 20px;
+        display: none;
+      }
+      .stat-box {
+        background: #252525;
+        padding: 10px;
+        border-radius: 8px;
+        text-align: center;
+        border: 1px solid #333;
+      }
+      .badge-version {
+        background-color: #da8e35;
+        font-size: 0.9rem;
+      }
+    </style>
+  </head>
+  <body>
+    <div class="container">
+      <h2 class="text-center mb-4">
+        NexusDB Tracker</span>
+      </h2>
+
+      <div class="card p-4 mb-4 shadow-lg">
+        <div class="mb-3">
+          <label class="form-label text-secondary">API Key<span style="color: #ff0000;">*</span></label>
+          <input
+            type="password"
+            id="apiKey"
+            class="form-control"
+            placeholder="Your Nexus Mods API key from settings"
+          />
+        </div>
+        <div class="row">
+          <div class="col-md-7 mb-3">
+            <label class="form-label text-secondary">Game (domain)<span style="color: #ff0000;">*</span></label>
+            <input
+              type="text"
+              id="gameDomain"
+              class="form-control"
+              placeholder="example: skyrimspecialedition"
+            />
+          </div>
+          <div class="col-md-5 mb-3">
+            <label class="form-label text-secondary">Mod ID<span style="color: #ff0000;">*</span></label>
+            <input
+              type="number"
+              id="modId"
+              class="form-control"
+              placeholder="1918"
+            />
+          </div>
+        </div>
+        <button onclick="fetchModData()" class="btn btn-nexus w-100 mt-2">
+          Find a mod
+        </button>
+      </div>
+
+      <div id="loader" class="text-center d-none">
+        <div class="spinner-border text-warning" role="status"></div>
+      </div>
+
+      <div id="resultCard" class="card p-4 shadow-lg d-none">
+        <img id="modImg" src="" class="mod-image" alt="Картинка мода" />
+        <div class="d-flex justify-content-between align-items-start">
+          <h3 id="modName" class="text-warning"></h3>
+          <span id="modVersion" class="badge badge-version"></span>
+        </div>
+        <p id="modAuthor" class="text-secondary mb-3"></p>
+        <p id="modSummary" class="lead" style="font-size: 1rem"></p>
+
+        <div class="row g-3 mb-4">
+          <div class="col-6 col-md-3">
+            <div class="stat-box small text-secondary">
+              Downloads<br /><strong
+                id="modDownloads"
+                class="text-white"
+              ></strong>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-box small text-secondary">
+              Likes<br /><strong id="modEndorse" class="text-white"></strong>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-box small text-secondary">
+              Views<br /><strong id="modViews" class="text-white"></strong>
+            </div>
+          </div>
+          <div class="col-6 col-md-3">
+            <div class="stat-box small text-secondary">
+              Status<br /><strong id="modStatus" class="text-white"></strong>
+            </div>
+          </div>
+        </div>
+
+        <a
+          id="modLink"
+          href="#"
+          target="_blank"
+          class="btn btn-outline-warning w-100"
+          >Open on Nexus</a
+        >
+      </div>
+
+      <div id="errorMsg" class="alert alert-danger mt-3 d-none"></div>
+    </div>
+
+    <script>
+      // Checking saved key
+  window.onload = () => {
+    const savedKey = localStorage.getItem('nexus_api_key');
+    if (savedKey) {
+        document.getElementById('apiKey').value = savedKey;
+    }
+};
+
+async function fetchModData() {
+    const errorMsg = document.getElementById('errorMsg');
+    const resultCard = document.getElementById('resultCard');
+    const loader = document.getElementById('loader');
+    
+    errorMsg.classList.add('d-none');
+    resultCard.classList.add('d-none');
+    loader.classList.remove('d-none');
+
+    const apiKey = document.getElementById('apiKey').value.trim();
+    const game = document.getElementById('gameDomain').value.trim();
+    const id = document.getElementById('modId').value;
+
+    if (!apiKey || !game || !id) {
+        showError("Required fields!");
+        return;
+    }
+
+    // Saving key
+    localStorage.setItem('nexus_api_key', apiKey);
+
+    const url = `https://api.nexusmods.com/v1/games/${game}/mods/${id}.json`;
+
+    try {
+        const response = await fetch(url, {
+            headers: {
+                'apikey': apiKey,
+                'accept': 'application/json'
+            }
+        });
+
+        if (!response.ok) {
+            throw new Error(`Error: ${response.status}. Mod MAY BE private or the ID is wrong.`);
+        }
+
+        const data = await response.json();
+        displayData(data, game, id);
+    } catch (err) {
+        showError(err.message);
+    } finally {
+        loader.classList.add('d-none');
+    }
+}
+
+function displayData(data, game, id) {
+    // Safe number format
+    const formatNum = (num) => (num !== undefined && num !== null) ? num.toLocaleString() : "0";
+
+    document.getElementById('modName').innerText = data.name || "No name";
+    document.getElementById('modAuthor').innerText = `by ${data.author || 'Unknown'}`;
+    document.getElementById('modVersion').innerText = data.version ? `v${data.version}` : "v???";
+    document.getElementById('modSummary').innerText = data.summary || "No description";
+    
+    // Safe formatting
+    document.getElementById('modDownloads').innerText = formatNum(data.downloads_count);
+    document.getElementById('modEndorse').innerText = formatNum(data.endorsement_count);
+    document.getElementById('modViews').innerText = formatNum(data.views_count);
+    document.getElementById('modStatus').innerText = data.available ? "Avalible" : "Hidden";
+    
+    const img = document.getElementById('modImg');
+    if (data.picture_url) {
+        img.src = data.picture_url;
+        img.style.display = 'block';
+    } else {
+        img.style.display = 'none';
+    }
+
+    document.getElementById('modLink').href = `https://www.nexusmods.com/${game}/mods/${id}`;
+    document.getElementById('resultCard').classList.remove('d-none');
+}
+
+function showError(text) {
+    const errorMsg = document.getElementById('errorMsg');
+    errorMsg.innerText = text;
+    errorMsg.classList.remove('d-none');
+    document.getElementById('loader').classList.add('d-none');
+}
+    </script>
+  </body>
+</html>
