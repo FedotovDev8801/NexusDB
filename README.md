@@ -1,4 +1,4 @@
-<img src="screenshot.png" alt="website screenshot" width="200"/>
+<img src="screenshot.png" alt="website screenshot" width="450"/>
 
 # NexusDB
 
